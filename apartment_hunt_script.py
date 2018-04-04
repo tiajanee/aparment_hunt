@@ -1,6 +1,5 @@
 import re
 import csv
-import glob
 import pprint
 import httplib2
 from urllib.request import urlopen
@@ -9,6 +8,7 @@ from bs4 import BeautifulSoup, SoupStrainer, Tag
 import os
 
 
+#links to all the apartments I'm interested in on Apartments.com
 APARTMENT_LINKS = [
 "https://www.apartments.com/san-leandro-racquet-club-san-leandro-ca/64kvwjs/",
 "https://www.apartments.com/amber-court-apartment-homes-fremont-ca/x4hhv4n/",
@@ -19,7 +19,7 @@ APARTMENT_LINKS = [
 "https://www.apartments.com/berkeley-apartments-berkeleyan-berkeley-ca/2s2elpb/",
 "https://www.apartments.com/the-lofts-at-albert-park-san-rafael-ca/rf33y81/",
 "https://www.apartments.com/summerhill-terrace-apartments-san-leandro-ca/nhc3jtn/",
-# "https://www.apartments.com/marina-plaza-apartments-san-leandro-ca/ztb2ycw/",
+"https://www.apartments.com/marina-plaza-apartments-san-leandro-ca/ztb2ycw/",
 "https://www.apartments.com/woodchase-apartment-homes-san-leandro-ca/y0h5ksv/", #9
 "https://www.apartments.com/northridge-pleasant-hill-ca/f4em0gs/",
 "https://www.apartments.com/1038-on-second-lafayette-lafayette-ca/381k1dg/",
@@ -43,21 +43,22 @@ APARTMENT_LINKS = [
 "https://www.apartments.com/creekwood-hayward-ca/per3r3t/"
 ]
 
+#where the csv file is going to be created and appended to
 DIR = '/Users/tiaking/Desktop/apartment_hunt/apartment_listings.csv'
 
+#runs all the functions
 def main():
-	index = 0
-	for apartment in APARTMENT_LINKS:
-		create_apartment_dataset(get_listing_attributes(apartment), getting_amenities(apartment))
-		print(index)
-		index += 1
+	# for apartment in APARTMENT_LINKS:
+	get_listing_attributes(APARTMENT_LINKS[9])
+		# create_apartment_dataset(get_listing_attributes(apartment), getting_amenities(apartment))
+	print(index)
 
 def getting_amenities(apartment):
 
-	#getting the amenities, checking for gym, pool/sauna/spa
-
+	#getting the amenities
 	page = urlopen(apartment).read()
 	soup = BeautifulSoup(page, 'html')
+
 	
 	ameneties = ([result.text for result in soup('div', {"class" : "col-33"})][0].strip() + [result.text for result in soup('div', {"class" : "col-33"})][1].strip())
 	
@@ -67,16 +68,20 @@ def getting_amenities(apartment):
 def get_listing_attributes(apartment):
 	page = urlopen(apartment).read()
 	soup = BeautifulSoup(page, 'html')
+	pprint.pprint(soup)
 
+	#extracting lease length
 	if len([lease.text for lease in soup('li', {'class':"leaseLength"})]) > 0:
 		dirty_lease_length = [lease.text for lease in soup('li', {'class':"leaseLength"})][0].strip()
 		lease_length = dirty_lease_length.replace(",", "")
 	else:
 		lease_length = ""
 
-	
+	#extracting the property name	
 	property_name = [name.text for name in soup('div', {'class':'propertyName'})][0].strip()
 
+
+	#extracting rating, address, city, phone #, deposit, size and MAX rent price.
 	rating = soup.find('div', class_='rating').get("title")
 	address = [location.text for location in soup('span', {'itemprop': 'streetAddress'})][0]
 	city = [city.text for city in soup('span', {'itemprop': 'addressLocality'})][0] 
@@ -92,15 +97,22 @@ def get_listing_attributes(apartment):
 	max_rent = re.sub('[^0-9]','', dirty_rent_range)
 	dirty_application_fee = [fee.text for fee in soup('div', {'class':'oneTimeFees'})][0].split()[3]
 	application_fee = re.sub('[^0-9]','', dirty_application_fee)
+
+	#splitting the rent based on contribution
+	taylor = 900
+	tia = int(max_rent) - taylor
 	
+	#saving all of the elements to a list so it writes to the CSV in order 
 	listing = [property_name, 
-	address, city, rating, phone_number, lease_length, deposit, size, max_rent, application_fee]
+	address, city, rating, phone_number, lease_length, deposit, size, max_rent, tia, taylor, application_fee]
+
 
 	return listing
 
 def create_apartment_dataset(listing, ameneties):
 	file_path = DIR
 
+	#ensures that it doesn't make a new csv if it's already been created
 	if not os.path.exists(os.path.dirname(file_path)):
 			try:
 				os.makedirs(os.path.dirname(file_path))
@@ -108,11 +120,12 @@ def create_apartment_dataset(listing, ameneties):
 				if exc.errno != errno.EEXIST:
 					raise
 	
+	#opens a new csv file and writes the header row but only if the csv is empty
 	with open(file_path, 'a') as csvfile:
 		filewriter = csv.writer(csvfile, delimiter =",", quotechar='|', quoting=csv.QUOTE_MINIMAL)
 		if os.path.getsize(file_path) == 0:
 			filewriter.writerow(['name','address', 'city', 'rating', 'phone #', 'lease length', 'deposit',
-				'size', 'rent $', "app fee", "gym?", "pool?", "ameneties"])
+				'size', 'rent $', "tia", "taylor", "app fee", "gym?", "pool?", "ameneties"])
 
 
 		#adding personal interest columns
@@ -132,6 +145,7 @@ def create_apartment_dataset(listing, ameneties):
 			if pool in ameneties:
 				has_pool = True
 			
+
 		listing.append(has_gym)
 		listing.append(has_pool)
 		listing.append([ameneties])
