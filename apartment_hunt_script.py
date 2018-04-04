@@ -13,61 +13,67 @@ APARTMENT_LINKS = [
 "https://www.apartments.com/san-leandro-racquet-club-san-leandro-ca/64kvwjs/",
 "https://www.apartments.com/amber-court-apartment-homes-fremont-ca/x4hhv4n/",
 "https://www.apartments.com/the-heights-san-leandro-ca/s82z2b6/",
+"https://www.apartments.com/creekwood-hayward-ca/per3r3t/",
+"https://www.apartments.com/seventy-harlan-apartments-san-leandro-ca/emzmnvq/",
+"https://www.apartments.com/san-leandro-racquet-club-san-leandro-ca/64kvwjs/",
+"https://www.apartments.com/berkeley-apartments-berkeleyan-berkeley-ca/2s2elpb/",
+"https://www.apartments.com/the-lofts-at-albert-park-san-rafael-ca/rf33y81/",
+"https://www.apartments.com/summerhill-terrace-apartments-san-leandro-ca/nhc3jtn/",
+# "https://www.apartments.com/marina-plaza-apartments-san-leandro-ca/ztb2ycw/",
+"https://www.apartments.com/woodchase-apartment-homes-san-leandro-ca/y0h5ksv/", #9
+"https://www.apartments.com/northridge-pleasant-hill-ca/f4em0gs/",
+"https://www.apartments.com/1038-on-second-lafayette-lafayette-ca/381k1dg/",
+"https://www.apartments.com/diablo-pointe-walnut-creek-ca/vzcnd0g/",
+"https://www.apartments.com/the-retreat-walnut-creek-ca/1hw8tq7/",
+"https://www.apartments.com/15fifty5-walnut-creek-ca/53vtx3q/",
+"https://www.apartments.com/las-ventanas-pleasanton-ca/rjw2422/",
+"https://www.apartments.com/anton-hacienda-pleasanton-ca/s3mqz07/",
+"https://www.apartments.com/gatewood-apartments-pleasanton-ca/bltdbkc/",
+"https://www.apartments.com/avana-stoneridge-pleasanton-ca/2m6xwx9/",
+"https://www.apartments.com/galloway-pleasanton-ca/jbmnl95/",
+# "https://www.apartments.com/pine-grove-san-lorenzo-ca/4lyy1xl/",
+"https://www.apartments.com/sofi-dublin-dublin-ca/pb7hlbt/",
+"https://www.apartments.com/parc88-fremont-ca/vmwkj6d/",
+# "https://www.apartments.com/metro-7785-apartments-san-leandro-ca/dqrg8tk/",
+# "https://www.apartments.com/ridgecrest-apartments-hayward-ca/1ej8r47/",
+"https://www.apartments.com/hurst-highland-village-hayward-ca/0gts8n1/",
+"https://www.apartments.com/hillcrest-apartment-homes-hayward-ca/s2jnk44/",
+"https://www.apartments.com/cinnamon-apartments-hayward-ca/1bvre25/",
+"https://www.apartments.com/park-orchard-hayward-ca/mlsymzh/",
 "https://www.apartments.com/creekwood-hayward-ca/per3r3t/"
 ]
 
 DIR = '/Users/tiaking/Desktop/apartment_hunt/apartment_listings.csv'
 
 def main():
+	index = 0
 	for apartment in APARTMENT_LINKS:
-		listing_info = get_listing_attributes(apartment)
-		extras = getting_amenities(apartment)
-		# create_apartment_dataset(listing_info, extras)
-
+		create_apartment_dataset(get_listing_attributes(apartment), getting_amenities(apartment))
+		print(index)
+		index += 1
 
 def getting_amenities(apartment):
 
-
-#getting the amenities, checking for gym, pool/sauna/spa
+	#getting the amenities, checking for gym, pool/sauna/spa
 
 	page = urlopen(apartment).read()
 	soup = BeautifulSoup(page, 'html')
 	
-	ameneties = ([result.text for result in soup('div', {"class" : "col-33"})][0].strip() + "\n"
-		+ [result.text for result in soup('div', {"class" : "col-33"})][1].strip())
-	# print(ameneties)
-
-
-	check_gym_list = ["Fitness", "Gym", "Cardio"]
-
-	has_gym = False
-
-	for gym in check_gym_list:
-		if gym in ameneties:
-			print(gym)
-			has_gym = True
-
-	check_pool_list = ["Pool", "Sauna", "Spa", "Hot Tub"]
-
-	has_pool =  False
-
-	for pool in check_pool_list:
-		if pool in ameneties:
-			print(pool)
-			has_pool = True
-
-	# print(has_gym)
-	# print(has_pool)
+	ameneties = ([result.text for result in soup('div', {"class" : "col-33"})][0].strip() + [result.text for result in soup('div', {"class" : "col-33"})][1].strip())
+	
 	return ameneties
-
 
 
 def get_listing_attributes(apartment):
 	page = urlopen(apartment).read()
 	soup = BeautifulSoup(page, 'html')
-	# pprint.pprint(soup)
 
-	lease_length = [lease.text for lease in soup('li', {'class':"leaseLength"})][0].strip()
+	if len([lease.text for lease in soup('li', {'class':"leaseLength"})]) > 0:
+		dirty_lease_length = [lease.text for lease in soup('li', {'class':"leaseLength"})][0].strip()
+		lease_length = dirty_lease_length.replace(",", "")
+	else:
+		lease_length = ""
+
 	
 	property_name = [name.text for name in soup('div', {'class':'propertyName'})][0].strip()
 
@@ -76,15 +82,19 @@ def get_listing_attributes(apartment):
 	city = [city.text for city in soup('span', {'itemprop': 'addressLocality'})][0] 
 	phone_number = [number.text for number in soup('span', {'class': 'phoneNumber'})][0].strip()
 
-	deposit = [money.text for money in soup('td', {'class': 'deposit'})][0]
+	dirty_deposit = [money.text for money in soup('td', {'class': 'deposit'})][0]
+	deposit = re.sub('[^0-9]','', dirty_deposit)
+	dirty_size = [feet.text for feet in soup('td', {'class': 'sqft'})][0]
+	size = re.sub('[^0-9]','', dirty_size)
 
-	size = [feet.text for feet in soup('td', {'class': 'sqft'})][0]
 
-	rent_range = [rent.text for rent in soup.find_all('div', {'class': 'rentRollupContainer'})][0].split()[-1].strip()
-	application_fee = [fee.text for fee in soup('div', {'class':'oneTimeFees'})][0].split()[3]
+	dirty_rent_range = [rent.text for rent in soup.find_all('div', {'class': 'rentRollupContainer'})][0].split()[-1].strip()
+	max_rent = re.sub('[^0-9]','', dirty_rent_range)
+	dirty_application_fee = [fee.text for fee in soup('div', {'class':'oneTimeFees'})][0].split()[3]
+	application_fee = re.sub('[^0-9]','', dirty_application_fee)
 	
 	listing = [property_name, 
-	address, city, rating, phone_number, lease_length, deposit, size, rent_range, application_fee]
+	address, city, rating, phone_number, lease_length, deposit, size, max_rent, application_fee]
 
 	return listing
 
@@ -102,12 +112,29 @@ def create_apartment_dataset(listing, ameneties):
 		filewriter = csv.writer(csvfile, delimiter =",", quotechar='|', quoting=csv.QUOTE_MINIMAL)
 		if os.path.getsize(file_path) == 0:
 			filewriter.writerow(['name','address', 'city', 'rating', 'phone #', 'lease length', 'deposit',
-				'size', 'rent $', "app fee", "ameneties"])
+				'size', 'rent $', "app fee", "gym?", "pool?", "ameneties"])
 
-		print(listing)
-		print(ameneties)
-		listing.append(ameneties)
-		print(listing)
+
+		#adding personal interest columns
+		check_gym_list = ["Fitness", "Gym", "Cardio"]
+
+		has_gym = False
+
+		for gym in check_gym_list:
+			if gym in ameneties:
+				has_gym = True
+
+		check_pool_list = ["Pool", "Sauna", "Spa", "Hot Tub"]
+
+		has_pool =  False
+
+		for pool in check_pool_list:
+			if pool in ameneties:
+				has_pool = True
+			
+		listing.append(has_gym)
+		listing.append(has_pool)
+		listing.append([ameneties])
 		filewriter.writerow(listing)
 
 
